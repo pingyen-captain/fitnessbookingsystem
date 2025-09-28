@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>預約管理APP</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="app-header sport">
+      <div class="brand">教練預約管理</div>
+      <details class="nav-collapsible">
+        <summary>選單</summary>
+        <nav class="nav">
+          <a href="#home" id="nav-home">首頁</a>
+          <a href="#calendar" id="nav-calendar">日曆</a>
+          <a href="#book" id="nav-book">預約</a>
+          <a href="#my" id="nav-my">我的預約</a>
+          <a href="#admin" id="nav-admin">後台</a>
+          <a href="#settings" id="nav-settings">設定</a>
+          <a href="#register" id="nav-register">註冊</a>
+          <a href="#login" id="nav-login">登入</a>
+          <a href="#logout" id="nav-logout" class="hidden">登出</a>
+        </nav>
+      </details>
+    </header>
+
+    <main id="app" class="container">
+      <section id="view-home" class="view hidden">
+        <div class="view-header">
+          <h2>手機號碼登入</h2>
+        </div>
+        <div id="home-login">
+          <form id="login-form" class="form">
+            <div class="form-row">
+              <label>手機號碼</label>
+              <input type="tel" id="login-phone" placeholder="0912-345-678" required />
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="primary">登入</button>
+            </div>
+            <div id="login-result" class="meta"></div>
+          </form>
+        </div>
+        <div id="home-dashboard" class="card hidden" style="margin-top:12px;">
+          <h3>歡迎回來</h3>
+          <p class="meta">請選擇要前往的功能。</p>
+          <div id="home-dash-merchant" class="row hidden" style="margin-top:8px;">
+            <a class="primary" href="#admin" style="text-decoration:none; padding:8px 12px; border-radius:10px;">後台管理</a>
+            <a class="ghost" href="#settings" style="text-decoration:none; padding:6px 10px; border-radius:8px;">系統設定</a>
+          </div>
+          <div id="home-dash-customer" class="row hidden" style="margin-top:8px;">
+            <a class="primary" href="#calendar" style="text-decoration:none; padding:8px 12px; border-radius:10px;">預約日曆</a>
+            <a class="ghost" href="#my" style="text-decoration:none; padding:6px 10px; border-radius:8px;">我的預約</a>
+          </div>
+        </div>
+      </section>
+      <section id="view-calendar" class="view hidden">
+        <div class="view-header">
+          <h2>可預約日曆</h2>
+          <div class="month-switch">
+            <button id="prev-month">◀ 上個月</button>
+            <div id="month-label"></div>
+            <button id="next-month">下個月 ▶</button>
+          </div>
+        </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+        <div id="day-detail" class="card hidden"></div>
+      </section>
+
+      <section id="view-book" class="view hidden">
+        <h2>建立新的預約</h2>
+        <form id="book-form" class="form">
+          <div class="form-row">
+            <label>選擇日期</label>
+            <input type="date" id="book-date" required />
+          </div>
+          <div class="form-row">
+            <label>選擇時段</label>
+            <select id="book-time" required></select>
+          </div>
+          <div class="form-row">
+            <label>服務項目</label>
+            <select id="book-service" required></select>
+          </div>
+          <div class="form-row">
+            <label>客戶姓名</label>
+            <input type="text" id="book-name" placeholder="王小明" required />
+          </div>
+          <div class="form-row">
+            <label>聯絡電話</label>
+            <input type="tel" id="book-phone" placeholder="0912-345-678" required />
+          </div>
+          <div class="form-row">
+            <label>客戶 Email（用於邀請加入行事曆）</label>
+            <input type="email" id="book-email" placeholder="example@gmail.com" />
+          </div>
+          <div class="form-row">
+            <label>備註</label>
+            <input type="text" id="book-notes" placeholder="可填寫染髮需求等" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="primary">確定預約</button>
+          </div>
+        </form>
+        <div id="book-result" class="card hidden"></div>
+      </section>
+
+      <section id="view-admin" class="view hidden">
+        <h2>管理後台</h2>
+        <div class="admin-panels">
+          <div class="card">
+            <h3>預約清單</h3>
+            <div id="admin-controls" class="row" style="margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+              <input type="text" id="admin-search" placeholder="搜尋姓名/電話/服務" />
+              <select id="admin-paid">
+                <option value="all">全部</option>
+                <option value="paid">已付款</option>
+                <option value="unpaid">未付款</option>
+              </select>
+              <input type="date" id="admin-date" />
+              <select id="admin-page-size">
+                <option value="10">每頁 10 筆</option>
+                <option value="20">每頁 20 筆</option>
+                <option value="50">每頁 50 筆</option>
+              </select>
+              <button id="admin-prev" class="ghost" type="button">上一頁</button>
+              <span id="admin-page-info" class="meta"></span>
+              <button id="admin-next" class="ghost" type="button">下一頁</button>
+            </div>
+            <table class="table" id="booking-table">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>時間</th>
+                  <th>客戶</th>
+                  <th>服務</th>
+                  <th>價格</th>
+                  <th>地點</th>
+                  <th>付款</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h3>收入報表</h3>
+            <div id="revenue-summary"></div>
+          </div>
+          <div class="card">
+            <h3>提醒通知（前一天）</h3>
+            <div id="reminder-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-my" class="view hidden">
+        <h2>我的預約</h2>
+        <div class="card">
+          <h3>即將到來</h3>
+          <div id="my-upcoming"></div>
+        </div>
+        <div class="card">
+          <h3>歷史紀錄</h3>
+          <div id="my-history"></div>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view hidden">
+        <h2>設定與時段管理</h2>
+        <div class="settings-panels">
+          <div class="card">
+            <h3>服務項目與收費</h3>
+            <form id="service-form" class="form-inline">
+              <input type="text" id="service-name" placeholder="服務名稱（剪髮 / 教練課）" required />
+              <button type="submit" class="primary">新增服務</button>
+            </form>
+            <ul id="service-list" class="list"></ul>
+          </div>
+          <div class="card">
+            <h3>工作地點、注意事項與 Google 行事曆設定</h3>
+            <form id="settings-form" class="form-inline">
+              <input type="text" id="setting-location" placeholder="服務地點（如健身房名稱）" />
+              <input type="text" id="setting-notes" placeholder="注意事項（著裝、到場時間等）" />
+              <input type="url" id="setting-line-url" placeholder="LINE 官方帳號網址（選填）" />
+              <input type="text" id="setting-liff-id" placeholder="LIFF ID（選填，用於登入/擴充）" />
+              <input type="text" id="setting-google-client-id" placeholder="Google OAuth Client ID（用於自動加入）" />
+              <input type="text" id="setting-google-calendar-id" placeholder="Calendar ID（預設 primary）" />
+              <button type="submit" class="primary">儲存</button>
+            </form>
+            <div id="line-oa-link" class="meta"></div>
+          </div>
+          <div class="card">
+            <h3>可預約時段</h3>
+            <div class="row" style="margin-bottom:8px;">
+              <button type="button" id="generate-month" class="ghost">生成未來一個月時段（07:00–22:00，每小時）</button>
+            </div>
+            <form id="availability-form" class="form-inline">
+              <input type="date" id="avail-date" required />
+              <input type="time" id="avail-time" required />
+              <button type="submit" class="primary">新增時段</button>
+            </form>
+            <div id="availability-list"></div>
+          </div>
+        </div>
+      </section>
+
+      
+
+      <section id="view-register" class="view hidden">
+        <h2>註冊</h2>
+        <form id="register-form" class="form">
+          <div class="form-row">
+            <label>手機號碼</label>
+            <input type="tel" id="reg-phone" placeholder="0912-345-678" required />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="primary">註冊</button>
+          </div>
+          <div id="register-result" class="meta"></div>
+        </form>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <small>© 預約管理APP</small>
+    </footer>
+
+    <script type="module" src="assets/app.js"></script>
+  </body>
+  </html>
