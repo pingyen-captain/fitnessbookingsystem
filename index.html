@@ -203,6 +203,29 @@
             </form>
             <div id="availability-list"></div>
           </div>
+          <div class="card">
+            <h3>雲端自動同步</h3>
+            <form id="cloud-form" class="form-inline">
+              <label class="meta">啟用同步</label>
+              <input type="checkbox" id="setting-sync-enabled" />
+              <input type="text" id="setting-sync-key" placeholder="同步識別鍵（選填）" />
+              <input type="text" id="setting-firebase-api-key" placeholder="Firebase API Key" />
+              <input type="text" id="setting-firebase-project-id" placeholder="Firebase Project ID" />
+              <input type="text" id="setting-firebase-auth-domain" placeholder="Firebase Auth Domain（選填）" />
+              <button type="submit" class="primary">儲存並啟用</button>
+            </form>
+            <div id="cloud-result" class="meta"></div>
+          </div>
+          <div class="card">
+            <h3>資料同步（匯出／匯入）</h3>
+            <div class="row" style="gap:8px; flex-wrap:wrap;">
+              <button type="button" id="export-data" class="ghost">匯出資料（JSON）</button>
+              <button type="button" id="import-data" class="ghost">匯入資料（JSON）</button>
+              <input type="file" id="import-file" accept="application/json" class="hidden" />
+            </div>
+            <div id="sync-result" class="meta" style="margin-top:8px;"></div>
+            <div class="meta" style="margin-top:6px;">注意：此應用目前以瀏覽器的本機儲存為主，跨裝置同步請使用匯出／匯入或改用後端雲端儲存。</div>
+          </div>
         </div>
       </section>
 
@@ -226,7 +249,9 @@
     <footer class="app-footer">
       <small>© 預約管理APP</small>
     </footer>
-
+    <!-- Firebase SDK（用於雲端自動同步） -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script type="module" src="assets/app.js"></script>
   </body>
   </html>

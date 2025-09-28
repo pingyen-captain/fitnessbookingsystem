@@ -30,7 +30,30 @@ function loadDB() {
   };
 }
 
-function saveDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+function setCloudStatus(msg) {
+  try {
+    const el = document.getElementById('cloud-result');
+    if (el) el.textContent = msg || '';
+  } catch (e) { /* ignore */ }
+}
+let firebaseApp = null, firestore = null, cloudDocRef = null, unsubscribeCloud = null, lastAppliedCloudTs = 0, pushingCloud = false;
+function saveDB(db) {
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+  if (DB && DB.settings && DB.settings.syncEnabled && cloudDocRef && firestore) {
+    try {
+      pushingCloud = true;
+      const ts = Date.now();
+      lastAppliedCloudTs = ts;
+      cloudDocRef.set({ data: db, updatedAt: ts }, { merge: true })
+        .then(() => setCloudStatus('已推送到雲端'))
+        .catch(err => setCloudStatus('雲端推送失敗：' + (err && err.message)))
+        .finally(() => { pushingCloud = false; });
+    } catch (e) {
+      pushingCloud = false;
+      setCloudStatus('雲端推送失敗：' + (e && e.message));
+    }
+  }
+}
 function id() { return Math.random().toString(36).slice(2, 10); }
 function pad(n) { return String(n).padStart(2, '0'); }
 function fmtDate(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -53,6 +76,56 @@ if (DB && DB.settings) {
   if (!Array.isArray(DB.settings.adminPhones) || DB.settings.adminPhones.length !== 1 || DB.settings.adminPhones[0] !== targetAdmin) {
     DB.settings.adminPhones = [targetAdmin];
     saveDB(DB);
+  }
+}
+// 雲端同步初始化（根據設定啟用 Firestore 並建立訂閱）
+function initCloudSync() {
+  try {
+    if (!(DB && DB.settings && DB.settings.syncEnabled)) { setCloudStatus('未啟用同步'); return; }
+    if (!(window.firebase && firebase.firestore)) { setCloudStatus('缺少 Firebase SDK'); return; }
+    const apiKey = (DB.settings.firebaseApiKey || '').trim();
+    const projectId = (DB.settings.firebaseProjectId || '').trim();
+    const authDomain = (DB.settings.firebaseAuthDomain || `${projectId}.firebaseapp.com`).trim();
+    if (!apiKey || !projectId) { setCloudStatus('請填寫 Firebase API Key 與 Project ID'); return; }
+    if (!firebaseApp) {
+      try { firebaseApp = firebase.initializeApp({ apiKey, projectId, authDomain }, 'bookingapp'); } catch (e) { /* ignore if already initialized */ }
+      firestore = firebase.firestore();
+    }
+    const docId = (DB.settings.syncKey && DB.settings.syncKey.trim()) || (Array.isArray(DB.settings.adminPhones) && DB.settings.adminPhones[0]) || 'default';
+    cloudDocRef = firestore.collection('bookingapp').doc(docId);
+    if (unsubscribeCloud) { try { unsubscribeCloud(); } catch (_) {} }
+    unsubscribeCloud = cloudDocRef.onSnapshot(snap => {
+      const data = snap.data();
+      if (!data || !data.data) return;
+      const ts = data.updatedAt || 0;
+      if (pushingCloud) return; // ignore our own push
+      if (ts <= lastAppliedCloudTs) return;
+      lastAppliedCloudTs = ts;
+      DB = data.data;
+      localStorage.setItem(DB_KEY, JSON.stringify(DB));
+      try {
+        renderCalendar();
+        renderBookForm();
+        renderAdmin();
+        renderSettings();
+        updateNavForAuth();
+        updateHomeDashboard();
+        renderMyBookings();
+      } catch (_) {}
+      setCloudStatus('已從雲端同步最新資料');
+    });
+    cloudDocRef.get().then(snap => {
+      if (!snap.exists) {
+        pushingCloud = true;
+        const ts = Date.now();
+        lastAppliedCloudTs = ts;
+        cloudDocRef.set({ data: DB, updatedAt: ts }).then(() => setCloudStatus('已初始化雲端文件')).finally(() => { pushingCloud = false; });
+      } else {
+        setCloudStatus('雲端同步已連線');
+      }
+    });
+  } catch (e) {
+    setCloudStatus('雲端初始化失敗：' + (e && e.message));
   }
 }
 // 月份狀態（避免在 render 之前未初始化）
@@ -472,6 +545,11 @@ function renderAdmin() {
 const serviceForm = document.getElementById('service-form');
 const serviceName = document.getElementById('service-name');
 const serviceList = document.getElementById('service-list');
+// 資料同步控制
+const exportBtn = document.getElementById('export-data');
+const importBtn = document.getElementById('import-data');
+const importFile = document.getElementById('import-file');
+const syncResult = document.getElementById('sync-result');
 
 const settingsForm = document.getElementById('settings-form');
 const settingLocation = document.getElementById('setting-location');
@@ -556,6 +634,17 @@ function renderSettings() {
       lineLink.innerHTML = '（可設定 LINE 官方帳號網址，方便快速前往）';
     }
   }
+  // 雲端同步設定表單填值
+  const settingSyncEnabled = document.getElementById('setting-sync-enabled');
+  const settingSyncKey = document.getElementById('setting-sync-key');
+  const settingFirebaseApiKey = document.getElementById('setting-firebase-api-key');
+  const settingFirebaseProjectId = document.getElementById('setting-firebase-project-id');
+  const settingFirebaseAuthDomain = document.getElementById('setting-firebase-auth-domain');
+  if (settingSyncEnabled) settingSyncEnabled.checked = !!DB.settings.syncEnabled;
+  if (settingSyncKey) settingSyncKey.value = DB.settings.syncKey || '';
+  if (settingFirebaseApiKey) settingFirebaseApiKey.value = DB.settings.firebaseApiKey || '';
+  if (settingFirebaseProjectId) settingFirebaseProjectId.value = DB.settings.firebaseProjectId || '';
+  if (settingFirebaseAuthDomain) settingFirebaseAuthDomain.value = DB.settings.firebaseAuthDomain || '';
 
   // 時段列表（按日期分組）
   availabilityList.innerHTML = '';
@@ -632,6 +721,8 @@ function openLineShare(text) {
 
 // 首次載入渲染
 renderCalendar();
+// 啟動雲端同步（若已在設定啟用）
+initCloudSync();
 // 登入（手機＋驗證碼）
 const loginForm = document.getElementById('login-form');
 const loginPhoneInput = document.getElementById('login-phone');
@@ -677,6 +768,27 @@ if (registerForm) {
     registerResult.textContent = '註冊成功，已自動登入';
     const nextTarget = (DB.auth.role === 'merchant') ? '#admin' : '#calendar';
     setTimeout(() => { location.hash = nextTarget; }, 300);
+  });
+}
+
+// 雲端自動同步：設定表單提交綁定
+const cloudForm = document.getElementById('cloud-form');
+if (cloudForm) {
+  cloudForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const settingSyncEnabled = document.getElementById('setting-sync-enabled');
+    const settingSyncKey = document.getElementById('setting-sync-key');
+    const settingFirebaseApiKey = document.getElementById('setting-firebase-api-key');
+    const settingFirebaseProjectId = document.getElementById('setting-firebase-project-id');
+    const settingFirebaseAuthDomain = document.getElementById('setting-firebase-auth-domain');
+    DB.settings.syncEnabled = !!(settingSyncEnabled && settingSyncEnabled.checked);
+    DB.settings.syncKey = (settingSyncKey && settingSyncKey.value || '').trim();
+    DB.settings.firebaseApiKey = (settingFirebaseApiKey && settingFirebaseApiKey.value || '').trim();
+    DB.settings.firebaseProjectId = (settingFirebaseProjectId && settingFirebaseProjectId.value || '').trim();
+    DB.settings.firebaseAuthDomain = (settingFirebaseAuthDomain && settingFirebaseAuthDomain.value || '').trim();
+    saveDB(DB);
+    initCloudSync();
+    setCloudStatus('已儲存設定並啟用（如條件符合）');
   });
 }
 
@@ -801,4 +913,46 @@ async function maybeAddToGoogleCalendar(booking) {
   }
   openGoogleTemplate(booking);
   downloadIcs(booking);
+}
+// 匯出／匯入：提供跨裝置手動同步
+function exportData() {
+  try {
+    const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'bookingapp-data.json'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (syncResult) syncResult.textContent = '已匯出資料（JSON 檔）。';
+  } catch (e) {
+    console.error(e); if (syncResult) syncResult.textContent = '匯出失敗。';
+  }
+}
+function importDataFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      // 基本驗證
+      if (!data || typeof data !== 'object') throw new Error('格式錯誤');
+      // 以新資料覆蓋
+      DB = data;
+      saveDB(DB);
+      // 重新渲染各視圖
+      renderSettings();
+      renderCalendar();
+      renderAdmin();
+      updateNavForAuth();
+      updateHomeDashboard();
+      if (syncResult) syncResult.textContent = '匯入成功，資料已更新。';
+    } catch (e) {
+      console.error(e); if (syncResult) syncResult.textContent = '匯入失敗，請確認 JSON 格式。';
+    }
+  };
+  reader.readAsText(file);
+}
+if (exportBtn) exportBtn.addEventListener('click', exportData);
+if (importBtn && importFile) {
+  importBtn.addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', () => importDataFromFile(importFile.files?.[0]));
 }
